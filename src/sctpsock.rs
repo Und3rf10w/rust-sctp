@@ -8,6 +8,8 @@ use std::mem::{transmute, size_of, zeroed};
 
 #[cfg(target_os="linux")]
 use std::os::unix::io::{AsRawFd, RawFd, FromRawFd};
+#[cfg(target_os="macos")]
+use std::os::unix::io::{AsRawFd, RawFd, FromRawFd};
 #[cfg(target_os="windows")]
 use std::os::windows::io::{AsRawHandle, RawHandle, FromRawHandle};
 
@@ -52,14 +54,39 @@ mod linux {
 	}
 }
 
+#[cfg(target_os="macos")]
+mod macos{
+	use std::io::{Result, Error};
+	use libc;
+
+	pub use libc::{sockaddr, sockaddr_in, sockaddr_in6, socklen_t, AF_INET,AF_INET6, socket, connect, bind, listen, accept, recv, send, shutdown, setsockopt, SHUT_RDWR, SHUT_RD, SHUT_WR};
+
+	pub type SOCKET = libc::c_int;
+	pub type RWlen = libc::size_t;
+
+	pub unsafe fn closesocket(sock: SOCKET) {
+		libc::close(sock);
+	}
+
+	pub fn check_socket(sock: SOCKET) -> Result<SOCKET> {
+		if sock < 0 { return Err(Error::last_os_error()); }
+		return Ok(sock);
+	}
+}
+
 #[cfg(target_os="windows")]
 use self::win::*;
 #[cfg(target_os="linux")]
 use self::linux::*;
+#[cfg(target_os="macos")]
+use self::macos::*;
+
 
 // XXX: Until getsockopt is available in libc crate
 extern "system" {
 	#[cfg(target_os="linux")]
+	fn getsockopt(sock: SOCKET, level: libc::c_int, optname: libc::c_int, optval: *mut libc::c_void, optlen: *mut socklen_t) -> libc::c_int;
+	#[cfg(target_os="macos")]
 	fn getsockopt(sock: SOCKET, level: libc::c_int, optname: libc::c_int, optval: *mut libc::c_void, optlen: *mut socklen_t) -> libc::c_int;
 	#[cfg(target_os="windows")]
 	fn getsockopt(sock: SOCKET, level: libc::c_int, optname: libc::c_int, optval: *mut libc::c_char, optlen: *mut libc::c_int) -> libc::c_int;
@@ -468,12 +495,28 @@ impl AsRawFd for SctpSocket {
 	}
 }
 
+#[cfg(target_os="macos")]
+impl AsRawFd for SctpSocket {
+	fn as_raw_fd(&self) -> RawFd {
+		return self.0;
+	}
+}
+
+
 #[cfg(target_os="linux")]
 impl FromRawFd for SctpSocket {
 	unsafe fn from_raw_fd(fd: RawFd) -> SctpSocket {
 		return SctpSocket(fd);
 	}
 }
+
+#[cfg(target_os="macos")]
+impl FromRawFd for SctpSocket {
+	unsafe fn from_raw_fd(fd: RawFd) -> SctpSocket {
+		return SctpSocket(fd);
+	}
+}
+
 
 impl Drop for SctpSocket {
 	fn drop(&mut self) {

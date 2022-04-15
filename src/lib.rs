@@ -17,6 +17,8 @@ use std::io::prelude::*;
 use std::io::{Result, Error, ErrorKind};
 use std::net::{ToSocketAddrs, SocketAddr, Shutdown};
 
+#[cfg(target_os="macos")]
+use std::os::unix::io::{AsRawFd, RawFd, FromRawFd};
 #[cfg(target_os="linux")]
 use std::os::unix::io::{AsRawFd, RawFd, FromRawFd};
 #[cfg(target_os="windows")]
@@ -26,6 +28,9 @@ use std::os::windows::io::{AsRawHandle, RawHandle, FromRawHandle};
 use winapi::{SOL_SOCKET, SOCK_STREAM, AF_INET, AF_INET6, SO_RCVBUF, SO_SNDBUF, SO_RCVTIMEO, SO_SNDTIMEO};
 #[cfg(target_os="linux")]
 use libc::{SOL_SOCKET, SOCK_STREAM, AF_INET, AF_INET6, SO_RCVBUF, SO_SNDBUF, SO_RCVTIMEO, SO_SNDTIMEO};
+#[cfg(target_os="macos")]
+use libc::{SOL_SOCKET, SOCK_STREAM, AF_INET, AF_INET6, SO_RCVBUF, SO_SNDBUF, SO_RCVTIMEO, SO_SNDTIMEO};
+
 
 /// Socket direction
 pub enum SoDirection {
@@ -192,6 +197,20 @@ impl FromRawFd for SctpStream {
 	}
 }
 
+#[cfg(target_os="macos")]
+impl AsRawFd for SctpStream {
+	fn as_raw_fd(&self) -> RawFd {
+		return self.0.as_raw_fd();
+	}
+}
+
+#[cfg(target_os="macos")]
+impl FromRawFd for SctpStream {
+	unsafe fn from_raw_fd(fd: RawFd) -> SctpStream {
+		return SctpStream(SctpSocket::from_raw_fd(fd));
+	}
+}
+
 
 /// One-to-many SCTP endpoint.
 pub struct SctpEndpoint(SctpSocket);
@@ -312,6 +331,22 @@ impl FromRawFd for SctpEndpoint {
 	}
 }
 
+#[cfg(target_os="macos")]
+impl AsRawFd for SctpEndpoint {
+	fn as_raw_fd(&self) -> RawFd {
+		return self.0.as_raw_fd();
+	}
+}
+
+#[cfg(target_os="macos")]
+impl FromRawFd for SctpEndpoint {
+	unsafe fn from_raw_fd(fd: RawFd) -> SctpEndpoint {
+		return SctpEndpoint(SctpSocket::from_raw_fd(fd));
+	}
+}
+
+
+
 /// Iterator over incoming connections on `SctpListener`
 pub struct Incoming<'a>(&'a SctpListener);
 
@@ -411,6 +446,20 @@ impl AsRawFd for SctpListener {
 }
 
 #[cfg(target_os="linux")]
+impl FromRawFd for SctpListener {
+	unsafe fn from_raw_fd(fd: RawFd) -> SctpListener {
+		return SctpListener(SctpSocket::from_raw_fd(fd));
+	}
+}
+
+#[cfg(target_os="macos")]
+impl AsRawFd for SctpListener {
+	fn as_raw_fd(&self) -> RawFd {
+		return self.0.as_raw_fd();
+	}
+}
+
+#[cfg(target_os="macos")]
 impl FromRawFd for SctpListener {
 	unsafe fn from_raw_fd(fd: RawFd) -> SctpListener {
 		return SctpListener(SctpSocket::from_raw_fd(fd));
